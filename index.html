@@ -5,10 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Separador de Liquidaciones - Centro de Costos</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/4.1.1/tesseract.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
-        /* Keep your original styles unchanged */
         * {
             margin: 0;
             padding: 0;
@@ -90,7 +91,7 @@
             font-size: 1.1em;
             cursor: pointer;
             transition: all 0.3s ease;
-            margin-top: 20px;
+            margin: 10px;
             font-weight: 600;
             box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
         }
@@ -214,6 +215,21 @@
             color: #2e7d32;
             margin: 5px 0;
         }
+        .worker-search {
+            margin: 20px 0;
+            text-align: center;
+        }
+        .worker-search input {
+            padding: 10px;
+            width: 70%;
+            border: 2px solid #667eea;
+            border-radius: 5px;
+            font-size: 1em;
+        }
+        .worker-search input:focus {
+            outline: none;
+            border-color: #764ba2;
+        }
     </style>
 </head>
 <body>
@@ -241,8 +257,13 @@
                 <p><strong>Dimensiones:</strong> <span id="dimensions"></span></p>
             </div>
 
+            <div class="worker-search">
+                <input type="text" id="workerName" placeholder="Buscar por nombre del trabajador (opcional)">
+                <button class="btn" id="workerSearchBtn">Generar PDF por Trabajador</button>
+            </div>
+
             <div style="text-align: center;">
-                <button class="btn" id="processBtn" disabled>Procesar Liquidaciones</button>
+                <button class="btn" id="processBtn" disabled>Procesar por Centro de Costos</button>
             </div>
 
             <div class="progress-container" id="progressContainer">
@@ -256,7 +277,7 @@
                 <h2>✅ Archivos Generados</h2>
                 <div id="resultsList"></div>
                 <div class="download-all">
-                    <button class="btn" id="downloadAllBtn">Descargar Todos</button>
+                    <button class="btn" id="downloadAllBtn">Descargar Todos (ZIP)</button>
                 </div>
             </div>
         </div>
@@ -267,11 +288,13 @@
         
         let uploadedFile = null;
         let processedData = [];
-        let originalPageSize = null; // To store original PDF dimensions
+        let originalPageSize = null;
 
         const uploadArea = document.getElementById('uploadArea');
         const fileInput = document.getElementById('fileInput');
         const processBtn = document.getElementById('processBtn');
+        const workerSearchBtn = document.getElementById('workerSearchBtn');
+        const workerNameInput = document.getElementById('workerName');
         const progressContainer = document.getElementById('progressContainer');
         const progressFill = document.getElementById('progressFill');
         const progressText = document.getElementById('progressText');
@@ -322,110 +345,159 @@
             fileName.textContent = file.name;
             fileSize.textContent = (file.size / 1024 / 1024).toFixed(2) + ' MB';
 
-            // Detect page size and orientation
+            // Create a fresh ArrayBuffer for processing
             const arrayBuffer = await file.arrayBuffer();
-            const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+            const pdfBuffer = new Uint8Array(arrayBuffer).slice(0);
+            const pdf = await pdfjsLib.getDocument({ data: pdfBuffer }).promise;
             const page = await pdf.getPage(1);
             const viewport = page.getViewport({ scale: 1.0 });
-            const width = viewport.width; // in points (1 pt = 1/72 inch)
-            const height = viewport.height;
-            originalPageSize = { width, height };
-            orientation.textContent = width > height ? 'Horizontal (Landscape)' : 'Vertical (Portrait)';
-            dimensions.textContent = `${(width / 2.83465).toFixed(2)} mm x ${(height / 2.83465).toFixed(2)} mm`;
+            originalPageSize = { width: viewport.width, height: viewport.height };
+            orientation.textContent = viewport.width > viewport.height ? 'Horizontal (Landscape)' : 'Vertical (Portrait)';
+            dimensions.textContent = `${(viewport.width / 2.83465).toFixed(2)} mm x ${(viewport.height / 2.83465).toFixed(2)} mm`;
 
             fileInfo.style.display = 'block';
             processBtn.disabled = false;
-            showAlert('Archivo cargado correctamente. Haz clic en "Procesar Liquidaciones"', 'success');
+            workerSearchBtn.disabled = false;
+            showAlert('Archivo cargado correctamente. Selecciona una opción para procesar.', 'success');
         }
 
         processBtn.addEventListener('click', async () => {
             if (!uploadedFile) return;
+            await processPDF(uploadedFile, 'costCenter');
+        });
 
+        workerSearchBtn.addEventListener('click', async () => {
+            const workerName = workerNameInput.value.trim();
+            if (!uploadedFile || !workerName) {
+                showAlert('Por favor carga un archivo PDF y escribe un nombre de trabajador', 'error');
+                return;
+            }
+            await processPDF(uploadedFile, 'worker', workerName);
+        });
+
+        async function processPDF(file, mode, workerName = '') {
             processBtn.disabled = true;
+            workerSearchBtn.disabled = true;
             progressContainer.style.display = 'block';
             results.style.display = 'none';
             hideAlerts();
 
             try {
-                await processPDF(uploadedFile);
+                updateProgress(10, 'Cargando PDF...');
+
+                // Create a fresh ArrayBuffer copy
+                const arrayBuffer = await file.arrayBuffer();
+                const pdfBuffer = new Uint8Array(arrayBuffer).slice(0);
+                const pdf = await pdfjsLib.getDocument({ data: pdfBuffer }).promise;
+                const totalPages = pdf.numPages;
+
+                updateProgress(20, `PDF cargado. Total de páginas: ${totalPages}`);
+
+                processedData = [];
+                let warnings = [];
+
+                if (mode === 'costCenter') {
+                    const pagesByCostCenter = {};
+
+                    for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
+                        updateProgress(20 + (pageNum / totalPages * 60), `Analizando página ${pageNum} de ${totalPages}...`);
+
+                        let text = '';
+                        try {
+                            const page = await pdf.getPage(pageNum);
+                            const textContent = await page.getTextContent();
+                            text = textContent.items.map(item => item.str).join(' ');
+                        } catch (e) {
+                            console.warn(`No se pudo extraer texto de la página ${pageNum}: ${e.message}`);
+                            warnings.push(`Página ${pageNum}: No se pudo extraer texto, intentando OCR...`);
+                            text = await performOCR(pdf, pageNum, arrayBuffer);
+                        }
+
+                        const costCenterRegex = /CL-\d{3,6}(?=\s|$)/g;
+                        const matches = text.match(costCenterRegex);
+
+                        if (matches && matches.length > 0) {
+                            const costCenter = matches[0];
+                            if (!pagesByCostCenter[costCenter]) {
+                                pagesByCostCenter[costCenter] = [];
+                            }
+                            pagesByCostCenter[costCenter].push(pageNum);
+                        } else {
+                            warnings.push(`Página ${pageNum}: No se detectó código CL-XXX/XXXX/XXXXX/XXXXXX`);
+                            pagesByCostCenter[`Sin_Centro_${pageNum}`] = [pageNum];
+                        }
+                    }
+
+                    updateProgress(85, 'Generando PDFs separados...');
+
+                    for (const [costCenter, pages] of Object.entries(pagesByCostCenter)) {
+                        const newPDF = await createPDFFromPages(arrayBuffer, pages);
+                        processedData.push({
+                            name: costCenter,
+                            pages: pages.length,
+                            blob: newPDF
+                        });
+                    }
+
+                    if (warnings.length > 0) {
+                        showAlert(`Advertencia: ${warnings.join('; ')}`, 'error');
+                    }
+                } else if (mode === 'worker') {
+                    const workerPages = [];
+
+                    for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
+                        updateProgress(20 + (pageNum / totalPages * 60), `Buscando "${workerName}" en página ${pageNum} de ${totalPages}...`);
+
+                        let text = '';
+                        try {
+                            const page = await pdf.getPage(pageNum);
+                            const textContent = await page.getTextContent();
+                            text = textContent.items.map(item => item.str).join(' ').toLowerCase();
+                        } catch (e) {
+                            console.warn(`No se pudo extraer texto de la página ${pageNum}: ${e.message}`);
+                            warnings.push(`Página ${pageNum}: No se pudo extraer texto, intentando OCR...`);
+                            text = await performOCR(pdf, pageNum, arrayBuffer);
+                            text = text.toLowerCase();
+                        }
+
+                        if (text.includes(workerName.toLowerCase())) {
+                            workerPages.push(pageNum);
+                        }
+                    }
+
+                    if (workerPages.length === 0) {
+                        showAlert(`No se encontraron liquidaciones para "${workerName}"`, 'error');
+                        return;
+                    }
+
+                    updateProgress(85, 'Generando PDF para el trabajador...');
+
+                    const newPDF = await createPDFFromPages(arrayBuffer, workerPages);
+                    if (!newPDF) {
+                        throw new Error('No se pudo generar el PDF para el trabajador');
+                    }
+                    processedData.push({
+                        name: workerName,
+                        pages: workerPages.length,
+                        blob: newPDF
+                    });
+                }
+
+                updateProgress(100, 'Proceso completado!');
+                displayResults(mode);
             } catch (error) {
                 showAlert('Error al procesar el PDF: ' + error.message, 'error');
                 console.error(error);
             } finally {
                 processBtn.disabled = false;
+                workerSearchBtn.disabled = false;
             }
-        });
-
-        async function processPDF(file) {
-            updateProgress(10, 'Cargando PDF...');
-
-            const arrayBuffer = await file.arrayBuffer();
-            const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-            const totalPages = pdf.numPages;
-
-            updateProgress(20, `PDF cargado. Total de páginas: ${totalPages}`);
-
-            const pagesByCostCenter = {};
-
-            for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
-                updateProgress(20 + (pageNum / totalPages * 60), `Analizando página ${pageNum} de ${totalPages}...`);
-
-                const page = await pdf.getPage(pageNum);
-                const textContent = await page.getTextContent();
-                const text = textContent.items.map(item => item.str).join(' ');
-
-                // Buscar código de centro de costos (formato CL-XXXXX)
-                const costCenterRegex = /CL-\d{5}/g;
-                const matches = text.match(costCenterRegex);
-
-                if (matches && matches.length > 0) {
-                    const costCenter = matches[0];
-                    if (!pagesByCostCenter[costCenter]) {
-                        pagesByCostCenter[costCenter] = [];
-                    }
-                    pagesByCostCenter[costCenter].push(pageNum);
-                } else {
-                    console.warn(`No se encontró centro de costos en página ${pageNum}`);
-                    pagesByCostCenter[`Sin_Centro_${pageNum}`] = [pageNum]; // Fallback
-                }
-            }
-
-            updateProgress(85, 'Generando PDFs separados...');
-
-            processedData = [];
-            for (const [costCenter, pages] of Object.entries(pagesByCostCenter)) {
-                const newPDF = await createPDFFromPages(pdf, pages);
-                processedData.push({
-                    costCenter: costCenter,
-                    pages: pages.length,
-                    blob: newPDF
-                });
-            }
-
-            updateProgress(100, 'Proceso completado!');
-            displayResults();
         }
 
-        async function createPDFFromPages(sourcePDF, pageNumbers) {
-            const { jsPDF } = window.jspdf;
-            // Set page size and orientation based on original PDF
-            const widthInPoints = originalPageSize.width;
-            const heightInPoints = originalPageSize.height;
-            const isLandscape = widthInPoints > heightInPoints;
-            // Convert points to mm (1 pt = 1/72 inch, 1 inch = 25.4 mm)
-            const widthInMM = widthInPoints / 2.83465;
-            const heightInMM = heightInPoints / 2.83465;
-            const newPDF = new jsPDF({
-                orientation: isLandscape ? 'landscape' : 'portrait',
-                unit: 'mm',
-                format: [widthInMM, heightInMM]
-            });
-
-            let firstPage = true;
-
-            for (const pageNum of pageNumbers) {
-                const page = await sourcePDF.getPage(pageNum);
-                const viewport = page.getViewport({ scale: 2.0 }); // High resolution
+        async function performOCR(pdf, pageNum, arrayBuffer) {
+            try {
+                const page = await pdf.getPage(pageNum);
+                const viewport = page.getViewport({ scale: 2.0 });
                 const canvas = document.createElement('canvas');
                 const context = canvas.getContext('2d');
                 canvas.width = viewport.width;
@@ -436,27 +508,55 @@
                     viewport: viewport
                 }).promise;
 
-                const imgData = canvas.toDataURL('image/jpeg', 0.95); // High quality JPEG
-
-                if (!firstPage) {
-                    newPDF.addPage([widthInMM, heightInMM], isLandscape ? 'landscape' : 'portrait');
-                }
-
-                newPDF.addImage(imgData, 'JPEG', 0, 0, widthInMM, heightInMM, null, 'SLOW'); // SLOW for better quality
-                firstPage = false;
+                const { data: { text } } = await Tesseract.recognize(canvas, 'eng+spa', {
+                    logger: (m) => console.log(`OCR página ${pageNum}: ${m.status}`)
+                });
+                return text || '';
+            } catch (e) {
+                console.warn(`OCR falló en la página ${pageNum}: ${e.message}`);
+                return '';
             }
-
-            return newPDF.output('blob');
         }
 
-        function displayResults() {
+        async function createPDFFromPages(sourceArrayBuffer, pageNumbers) {
+            try {
+                // Create a fresh ArrayBuffer copy
+                const pdfBuffer = new Uint8Array(sourceArrayBuffer).slice(0);
+                const newPDF = await PDFLib.PDFDocument.create();
+                const sourceDoc = await PDFLib.PDFDocument.load(pdfBuffer);
+
+                if (pageNumbers.length === 0) {
+                    throw new Error('No hay páginas para generar el PDF');
+                }
+
+                const copiedPages = await newPDF.copyPages(sourceDoc, pageNumbers.map(num => num - 1));
+                copiedPages.forEach(page => {
+                    newPDF.addPage(page);
+                    page.setSize(originalPageSize.width, originalPageSize.height); // Preserve exact dimensions
+                });
+
+                const pdfBytes = await newPDF.save();
+                if (!pdfBytes || pdfBytes.length === 0) {
+                    throw new Error('El PDF generado está vacío');
+                }
+                return new Blob([pdfBytes], { type: 'application/pdf' });
+            } catch (e) {
+                throw new Error(`Error al generar PDF: ${e.message}`);
+            }
+        }
+
+        function displayResults(mode) {
             resultsList.innerHTML = '';
+            if (processedData.length === 0) {
+                showAlert('No se generaron archivos. Verifica la entrada.', 'error');
+                return;
+            }
             processedData.forEach((data, index) => {
                 const item = document.createElement('div');
                 item.className = 'result-item';
                 item.innerHTML = `
                     <div class="result-info">
-                        <h3>${data.costCenter}</h3>
+                        <h3>${mode === 'costCenter' ? 'Centro de Costos: ' : 'Trabajador: '}${data.name}</h3>
                         <p>${data.pages} página(s)</p>
                     </div>
                     <button class="download-btn" onclick="downloadPDF(${index})">Descargar</button>
@@ -470,20 +570,34 @@
 
         function downloadPDF(index) {
             const data = processedData[index];
+            if (!data.blob) {
+                showAlert('Error: El archivo PDF no está disponible para descargar', 'error');
+                return;
+            }
             const url = URL.createObjectURL(data.blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `Liquidaciones_${data.costCenter}.pdf`;
+            a.download = `Liquidaciones_${data.name.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
         }
 
-        document.getElementById('downloadAllBtn').addEventListener('click', () => {
+        document.getElementById('downloadAllBtn').addEventListener('click', async () => {
+            if (processedData.length === 0) {
+                showAlert('No hay archivos para descargar', 'error');
+                return;
+            }
+
+            const zip = new JSZip();
             processedData.forEach((data, index) => {
-                setTimeout(() => downloadPDF(index), index * 500);
+                if (data.blob) {
+                    zip.file(`Liquidaciones_${data.name.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`, data.blob);
+                }
             });
+            const zipBlob = await zip.generateAsync({ type: 'blob' });
+            saveAs(zipBlob, 'Liquidaciones_Securitas.zip');
         });
 
         function updateProgress(percent, message) {
