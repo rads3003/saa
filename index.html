@@ -8,19 +8,18 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/4.1.1/tesseract.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
+        /* Keep your original styles unchanged */
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
-
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
             padding: 20px;
         }
-
         .container {
             max-width: 900px;
             margin: 0 auto;
@@ -29,28 +28,23 @@
             box-shadow: 0 20px 60px rgba(0,0,0,0.3);
             overflow: hidden;
         }
-
         .header {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
             padding: 40px;
             text-align: center;
         }
-
         .header h1 {
             font-size: 2em;
             margin-bottom: 10px;
         }
-
         .header p {
             opacity: 0.9;
             font-size: 1.1em;
         }
-
         .content {
             padding: 40px;
         }
-
         .upload-area {
             border: 3px dashed #667eea;
             border-radius: 15px;
@@ -60,40 +54,33 @@
             cursor: pointer;
             background: #f8f9ff;
         }
-
         .upload-area:hover {
             border-color: #764ba2;
             background: #f0f2ff;
             transform: translateY(-2px);
         }
-
         .upload-area.drag-over {
             border-color: #764ba2;
             background: #e8ebff;
             transform: scale(1.02);
         }
-
         .upload-icon {
             font-size: 4em;
             margin-bottom: 20px;
             color: #667eea;
         }
-
         .upload-area h3 {
             color: #333;
             margin-bottom: 10px;
             font-size: 1.3em;
         }
-
         .upload-area p {
             color: #666;
             font-size: 0.95em;
         }
-
         #fileInput {
             display: none;
         }
-
         .btn {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
@@ -107,23 +94,19 @@
             font-weight: 600;
             box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
         }
-
         .btn:hover {
             transform: translateY(-2px);
             box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
         }
-
         .btn:disabled {
             background: #ccc;
             cursor: not-allowed;
             box-shadow: none;
         }
-
         .progress-container {
             display: none;
             margin-top: 30px;
         }
-
         .progress-bar {
             width: 100%;
             height: 30px;
@@ -132,7 +115,6 @@
             overflow: hidden;
             margin-bottom: 15px;
         }
-
         .progress-fill {
             height: 100%;
             background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
@@ -145,24 +127,20 @@
             font-weight: bold;
             font-size: 0.9em;
         }
-
         .progress-text {
             text-align: center;
             color: #666;
             margin-top: 10px;
         }
-
         .results {
             display: none;
             margin-top: 30px;
         }
-
         .results h2 {
             color: #333;
             margin-bottom: 20px;
             font-size: 1.5em;
         }
-
         .result-item {
             background: #f8f9ff;
             padding: 20px;
@@ -174,27 +152,22 @@
             border-left: 4px solid #667eea;
             transition: all 0.3s ease;
         }
-
         .result-item:hover {
             transform: translateX(5px);
             box-shadow: 0 4px 15px rgba(0,0,0,0.1);
         }
-
         .result-info {
             flex: 1;
         }
-
         .result-info h3 {
             color: #667eea;
             margin-bottom: 5px;
             font-size: 1.2em;
         }
-
         .result-info p {
             color: #666;
             font-size: 0.9em;
         }
-
         .download-btn {
             background: #28a745;
             color: white;
@@ -205,36 +178,30 @@
             font-weight: 600;
             transition: all 0.3s ease;
         }
-
         .download-btn:hover {
             background: #218838;
             transform: scale(1.05);
         }
-
         .download-all {
             text-align: center;
             margin-top: 20px;
         }
-
         .alert {
             padding: 15px;
             border-radius: 10px;
             margin-bottom: 20px;
             display: none;
         }
-
         .alert-error {
             background: #fee;
             color: #c33;
             border-left: 4px solid #c33;
         }
-
         .alert-success {
             background: #efe;
             color: #3c3;
             border-left: 4px solid #3c3;
         }
-
         .file-info {
             display: none;
             background: #e8f5e9;
@@ -243,7 +210,6 @@
             margin-top: 20px;
             border-left: 4px solid #4caf50;
         }
-
         .file-info p {
             color: #2e7d32;
             margin: 5px 0;
@@ -254,7 +220,7 @@
     <div class="container">
         <div class="header">
             <h1>📄 Separador de Liquidaciones</h1>
-            <p>Organiza tus liquidaciones por Centro de Costos automatizado  SECURITAS CONCEPCIÓN</p>
+            <p>Organiza tus liquidaciones por Centro de Costos automatizado - SECURITAS CONCEPCIÓN</p>
         </div>
 
         <div class="content">
@@ -271,6 +237,8 @@
             <div class="file-info" id="fileInfo">
                 <p><strong>Archivo cargado:</strong> <span id="fileName"></span></p>
                 <p><strong>Tamaño:</strong> <span id="fileSize"></span></p>
+                <p><strong>Orientación:</strong> <span id="orientation"></span></p>
+                <p><strong>Dimensiones:</strong> <span id="dimensions"></span></p>
             </div>
 
             <div style="text-align: center;">
@@ -299,6 +267,7 @@
         
         let uploadedFile = null;
         let processedData = [];
+        let originalPageSize = null; // To store original PDF dimensions
 
         const uploadArea = document.getElementById('uploadArea');
         const fileInput = document.getElementById('fileInput');
@@ -311,21 +280,20 @@
         const fileInfo = document.getElementById('fileInfo');
         const fileName = document.getElementById('fileName');
         const fileSize = document.getElementById('fileSize');
+        const orientation = document.getElementById('orientation');
+        const dimensions = document.getElementById('dimensions');
         const alertError = document.getElementById('alertError');
         const alertSuccess = document.getElementById('alertSuccess');
 
         // Drag and drop
         uploadArea.addEventListener('click', () => fileInput.click());
-        
         uploadArea.addEventListener('dragover', (e) => {
             e.preventDefault();
             uploadArea.classList.add('drag-over');
         });
-
         uploadArea.addEventListener('dragleave', () => {
             uploadArea.classList.remove('drag-over');
         });
-
         uploadArea.addEventListener('drop', (e) => {
             e.preventDefault();
             uploadArea.classList.remove('drag-over');
@@ -334,22 +302,37 @@
                 handleFile(files[0]);
             }
         });
-
         fileInput.addEventListener('change', (e) => {
             if (e.target.files.length > 0) {
                 handleFile(e.target.files[0]);
             }
         });
 
-        function handleFile(file) {
+        async function handleFile(file) {
             if (file.type !== 'application/pdf') {
                 showAlert('Por favor selecciona un archivo PDF válido', 'error');
+                return;
+            }
+            if (file.size > 50 * 1024 * 1024) {
+                showAlert('El archivo es demasiado grande (máx. 50MB)', 'error');
                 return;
             }
 
             uploadedFile = file;
             fileName.textContent = file.name;
             fileSize.textContent = (file.size / 1024 / 1024).toFixed(2) + ' MB';
+
+            // Detect page size and orientation
+            const arrayBuffer = await file.arrayBuffer();
+            const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+            const page = await pdf.getPage(1);
+            const viewport = page.getViewport({ scale: 1.0 });
+            const width = viewport.width; // in points (1 pt = 1/72 inch)
+            const height = viewport.height;
+            originalPageSize = { width, height };
+            orientation.textContent = width > height ? 'Horizontal (Landscape)' : 'Vertical (Portrait)';
+            dimensions.textContent = `${(width / 2.83465).toFixed(2)} mm x ${(height / 2.83465).toFixed(2)} mm`;
+
             fileInfo.style.display = 'block';
             processBtn.disabled = false;
             showAlert('Archivo cargado correctamente. Haz clic en "Procesar Liquidaciones"', 'success');
@@ -397,14 +380,13 @@
 
                 if (matches && matches.length > 0) {
                     const costCenter = matches[0];
-                    
                     if (!pagesByCostCenter[costCenter]) {
                         pagesByCostCenter[costCenter] = [];
                     }
-                    
                     pagesByCostCenter[costCenter].push(pageNum);
                 } else {
                     console.warn(`No se encontró centro de costos en página ${pageNum}`);
+                    pagesByCostCenter[`Sin_Centro_${pageNum}`] = [pageNum]; // Fallback
                 }
             }
 
@@ -426,12 +408,24 @@
 
         async function createPDFFromPages(sourcePDF, pageNumbers) {
             const { jsPDF } = window.jspdf;
-            const newPDF = new jsPDF();
+            // Set page size and orientation based on original PDF
+            const widthInPoints = originalPageSize.width;
+            const heightInPoints = originalPageSize.height;
+            const isLandscape = widthInPoints > heightInPoints;
+            // Convert points to mm (1 pt = 1/72 inch, 1 inch = 25.4 mm)
+            const widthInMM = widthInPoints / 2.83465;
+            const heightInMM = heightInPoints / 2.83465;
+            const newPDF = new jsPDF({
+                orientation: isLandscape ? 'landscape' : 'portrait',
+                unit: 'mm',
+                format: [widthInMM, heightInMM]
+            });
+
             let firstPage = true;
 
             for (const pageNum of pageNumbers) {
                 const page = await sourcePDF.getPage(pageNum);
-                const viewport = page.getViewport({ scale: 2.0 });
+                const viewport = page.getViewport({ scale: 2.0 }); // High resolution
                 const canvas = document.createElement('canvas');
                 const context = canvas.getContext('2d');
                 canvas.width = viewport.width;
@@ -442,16 +436,13 @@
                     viewport: viewport
                 }).promise;
 
-                const imgData = canvas.toDataURL('image/jpeg', 0.95);
-                
+                const imgData = canvas.toDataURL('image/jpeg', 0.95); // High quality JPEG
+
                 if (!firstPage) {
-                    newPDF.addPage();
+                    newPDF.addPage([widthInMM, heightInMM], isLandscape ? 'landscape' : 'portrait');
                 }
-                
-                const pdfWidth = newPDF.internal.pageSize.getWidth();
-                const pdfHeight = newPDF.internal.pageSize.getHeight();
-                
-                newPDF.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+
+                newPDF.addImage(imgData, 'JPEG', 0, 0, widthInMM, heightInMM, null, 'SLOW'); // SLOW for better quality
                 firstPage = false;
             }
 
@@ -460,7 +451,6 @@
 
         function displayResults() {
             resultsList.innerHTML = '';
-            
             processedData.forEach((data, index) => {
                 const item = document.createElement('div');
                 item.className = 'result-item';
@@ -515,3 +505,4 @@
         }
     </script>
 </body>
+</html>
